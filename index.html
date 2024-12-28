@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧型倉儲管理系統</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .output {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .warning {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>智慧型倉儲管理系統</h1>
+
+    <!-- 即時庫存管理 -->
+    <div class="section">
+        <h2>1. 即時庫存管理</h2>
+        <label for="date">選擇日期：</label>
+        <input type="date" id="date">
+        <br><br>
+        <label for="guests">輸入今日來客數量：</label>
+        <input type="number" id="guests" min="0" placeholder="輸入人數">
+        <button onclick="manageInventory()">紀錄並計算庫存</button>
+        <div id="inventoryOutput" class="output"></div>
+        <div id="dailyRecords" class="output">
+            <h3>每日消耗紀錄：</h3>
+            <ul id="recordList"></ul>
+        </div>
+    </div>
+
+    <!-- 庫存預警 -->
+    <div class="section">
+        <h2>2. 庫存預警</h2>
+        <div id="restockOutput" class="output"></div>
+    </div>
+
+    <!-- 庫存補充 -->
+    <div class="section">
+        <h2>3. 庫存補充</h2>
+        <label for="restockRobe">輸入浴袍補充數量：</label>
+        <input type="number" id="restockRobe" min="0">
+        <br><br>
+        <label for="restockTowel">輸入毛巾補充數量：</label>
+        <input type="number" id="restockTowel" min="0">
+        <br><br>
+        <label for="restockSlipper">輸入拖鞋補充數量：</label>
+        <input type="number" id="restockSlipper" min="0">
+        <button onclick="restockInventory()">補充庫存</button>
+        <div id="restockStatus" class="output"></div>
+    </div>
+
+    <!-- 資料分析 -->
+    <div class="section">
+        <h2>4. 資料分析</h2>
+        <button onclick="calculateWeeklyConsumption()">計算近七日消耗量</button>
+        <button onclick="findMaxConsumptionDay()">找出物品庫存消耗量最高的天數</button>
+        <div id="weeklyConsumption" class="output"></div>
+        <div id="maxConsumptionDay" class="output"></div>
+    </div>
+
+    <script>
+        const items = [
+            { name: "浴袍", stock: 1000, warningLevel: 300 },
+            { name: "毛巾", stock: 1000, warningLevel: 300 },
+            { name: "拖鞋", stock: 500, warningLevel: 200 },
+        ];
+
+        const dailyRecords = []; // 記錄每日消耗
+        const weeklyConsumption = []; // 用來存儲每週的總消耗量
+
+        function manageInventory() {
+            const date = document.getElementById("date").value;
+            const guests = parseInt(document.getElementById("guests").value);
+
+            if (!date) {
+                document.getElementById("inventoryOutput").innerHTML = "請選擇日期！";
+                return;
+            }
+
+            if (isNaN(guests) || guests <= 0) {
+                document.getElementById("inventoryOutput").innerHTML = "請輸入有效的來客數量！";
+                return;
+            }
+
+            // 計算每日消耗
+            const dailyConsumption = [];
+            let output = `<h3>日期：${date}</h3><h3>今日預計消耗：</h3>`;
+            items.forEach(item => {
+                let consumption = 0;
+                if (item.name === "浴袍") consumption = Math.ceil(guests * 1.5);
+                else if (item.name === "毛巾") consumption = guests * 2;
+                else if (item.name === "拖鞋") consumption = guests;
+
+                item.stock -= consumption;
+                dailyConsumption.push({ name: item.name, consumed: consumption });
+                output += `${item.name}: ${consumption}<br>`;
+            });
+
+            dailyRecords.push({ date, consumption: dailyConsumption });
+            displayDailyRecords();
+
+            output += "<h3>剩餘庫存：</h3>";
+            items.forEach(item => {
+                output += `${item.name}: ${item.stock}<br>`;
+            });
+
+            document.getElementById("inventoryOutput").innerHTML = output;
+            checkRestock();
+        }
+
+        function displayDailyRecords() {
+            const recordList = document.getElementById("recordList");
+            recordList.innerHTML = "";
+
+            dailyRecords.forEach(record => {
+                let recordText = `<strong>${record.date}</strong>: `;
+                record.consumption.forEach(item => {
+                    recordText += `${item.name}消耗 ${item.consumed}， `;
+                });
+                recordText = recordText.slice(0, -1); // 去掉最後的逗號
+                const listItem = document.createElement("li");
+                listItem.innerHTML = recordText;
+                recordList.appendChild(listItem);
+            });
+        }
+
+        function checkRestock() {
+            const sortedItems = insertionSort([...items]); // 使用插入排序
+            let output = "<h3>預警提示：</h3>";
+            sortedItems.forEach(item => {
+                if (item.stock <= item.warningLevel) {
+                    output += `<span class="warning">${item.name}: ${item.stock}（低於預警值 ${item.warningLevel}）</span><br>`;
+                }
+            });
+
+            output += "<h3>建議優先補貨順序：</h3>";
+            sortedItems.forEach(item => {
+                output += `${item.name}: ${item.stock}<br>`;
+            });
+
+            document.getElementById("restockOutput").innerHTML = output;
+        }
+
+        function restockInventory() {
+            const robeRestock = parseInt(document.getElementById("restockRobe").value);
+            const towelRestock = parseInt(document.getElementById("restockTowel").value);
+            const slipperRestock = parseInt(document.getElementById("restockSlipper").value);
+
+            if (isNaN(robeRestock) || isNaN(towelRestock) || isNaN(slipperRestock)) {
+                document.getElementById("restockStatus").innerHTML = "請輸入有效的補充數量！";
+                return;
+            }
+
+            items[0].stock += robeRestock;
+            items[1].stock += towelRestock;
+            items[2].stock += slipperRestock;
+
+            document.getElementById("restockStatus").innerHTML = `
+                浴袍補充: ${robeRestock}<br>
+                毛巾補充: ${towelRestock}<br>
+                拖鞋補充: ${slipperRestock}<br>
+            `;
+            checkRestock();
+        }
+
+        function insertionSort(array) {
+            for (let i = 1; i < array.length; i++) {
+                let key = array[i];
+                let j = i - 1;
+                while (j >= 0 && array[j].stock > key.stock) {
+                    array[j + 1] = array[j];
+                    j = j - 1;
+                }
+                array[j + 1] = key;
+            }
+            return array;
+        }
+
+        function calculateWeeklyConsumption() {
+            let totalConsumption = { "浴袍": 0, "毛巾": 0, "拖鞋": 0 };
+            const now = new Date();
+            const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+
+            let output = "<h3>近七日物品消耗量（" + startDate.toLocaleDateString() + " 至 " + now.toLocaleDateString() + "）:</h3>";
+
+            dailyRecords.forEach(record => {
+                const recordDate = new Date(record.date);
+                if (recordDate >= startDate && recordDate <= now) {
+                    record.consumption.forEach(item => {
+                        totalConsumption[item.name] += item.consumed;
+                    });
+                }
+            });
+
+            output += `
+                浴袍: ${totalConsumption["浴袍"]}<br>
+                毛巾: ${totalConsumption["毛巾"]}<br>
+                拖鞋: ${totalConsumption["拖鞋"]}<br>
+            `;
+
+            document.getElementById("weeklyConsumption").innerHTML = output;
+        }
+
+        function findMaxConsumptionDay() {
+            let maxConsumption = 0;
+            let maxDay = "";
+            let maxItemConsumption = { "浴袍": 0, "毛巾": 0, "拖鞋": 0 };
+            
+            dailyRecords.forEach(record => {
+                let dailyTotal = record.consumption.reduce((total, item) => total + item.consumed, 0);
+                if (dailyTotal > maxConsumption) {
+                    maxConsumption = dailyTotal;
+                    maxDay = record.date;
+
+                    // 记录当日的每个物品消耗量
+                    record.consumption.forEach(item => {
+                        maxItemConsumption[item.name] = item.consumed;
+                    });
+                }
+            });
+
+            if (maxDay) {
+                document.getElementById("maxConsumptionDay").innerHTML = `
+                    <h3>物品庫存消耗量最高的天數：</h3>
+                    日期：${maxDay}<br>
+                    浴袍: ${maxItemConsumption["浴袍"]}<br>
+                    毛巾: ${maxItemConsumption["毛巾"]}<br>
+                    拖鞋: ${maxItemConsumption["拖鞋"]}
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
